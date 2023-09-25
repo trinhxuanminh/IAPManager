@@ -30,12 +30,13 @@ public class IAPManager {
   }
 
   public func verify(completed: Handler?, errored: Handler?) {
+    print("IAPManager: Start verify!")
     Glassfy.permissions { [weak self] permissions, error in
       guard let self = self else {
         return
       }
       guard error == nil else {
-        print(error as Any)
+        print("IAPManager: Verify failed! - \(String(describing: error))")
         errored?()
         return
       }
@@ -45,7 +46,7 @@ public class IAPManager {
         let permission = permissions[permissionKey],
         permission.isValid
       else {
-        print("API:Not premium!")
+        print("IAPManager: Not premium!")
         completed?()
         return
       }
@@ -71,16 +72,18 @@ public class IAPManager {
 
   public func purchase(productID: String, completed: Handler?, errored: Handler?) {
     guard let product = products.first(where: { $0.product.productIdentifier == productID }) else {
+      print("IAPManager: No products!")
       errored?()
       return
     }
+    print("IAPManager: Start purchase!")
     self.isLoading = true
     Glassfy.purchase(sku: product) { [weak self] transaction, error in
       guard let self = self else {
         return
       }
       guard error == nil else {
-        print(error as Any)
+        print("IAPManager: Purchase failed! - \(String(describing: error))")
         self.isLoading = false
         errored?()
         return
@@ -91,6 +94,7 @@ public class IAPManager {
         let p = transaction.permissions[permissionKey],
         p.isValid
       else {
+        print("IAPManager: Purchase failed!")
         self.isLoading = false
         errored?()
         return
@@ -102,13 +106,14 @@ public class IAPManager {
   }
 
   public func restore(completed: Handler?, nothing: Handler?, errored: Handler?) {
+    print("IAPManager: Start restore!")
     self.isLoading = true
     Glassfy.restorePurchases { [weak self] permissions, error in
       guard let self = self else {
         return
       }
       guard error == nil else {
-        print(error as Any)
+        print("IAPManager: Restore failed! - \(String(describing: error))")
         self.isLoading = false
         errored?()
         return
@@ -119,6 +124,7 @@ public class IAPManager {
         let permission = permissions[permissionKey],
         permission.isValid
       else {
+        print("IAPManager: Restore failed!")
         self.isLoading = false
         nothing?()
         return
@@ -136,12 +142,13 @@ public class IAPManager {
 
 extension IAPManager {
   private func fetch() {
+    print("IAPManager: Start fetch product!")
     Glassfy.offerings { [weak self] offers, error in
       guard let self = self else {
         return
       }
       guard error == nil else {
-        print(error as Any)
+        print("IAPManager: Product fetch failed! - \(String(describing: error))")
         return
       }
       guard
@@ -149,6 +156,7 @@ extension IAPManager {
         let offeringKey,
         let offering = offers[offeringKey]
       else {
+        print("IAPManager: Product fetch failed!")
         return
       }
       self.products = offering.skus
@@ -158,6 +166,7 @@ extension IAPManager {
   }
 
   private func purchared() {
+    print("IAPManager: Premium!")
     self.isPremium = true
   }
   
