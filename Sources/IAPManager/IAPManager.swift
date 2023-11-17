@@ -58,9 +58,9 @@ public class IAPManager {
     }
   }
 
-  public func retrieveInfo(skuID: String, completion: @escaping RetrieveInfoCompletion, errored: Handler? = nil) {
+  public func retrieveInfo(skuId: String, completion: @escaping RetrieveInfoCompletion, errored: Handler? = nil) {
     print("IAPManager: Start retrieve info!")
-    Glassfy.sku(id: skuID) { sku, error in
+    Glassfy.sku(id: skuId) { sku, error in
       guard error == nil, let sku else {
         print("IAPManager: SKU fetch failed! - \(String(describing: error))")
         errored?()
@@ -70,10 +70,10 @@ public class IAPManager {
     }
   }
 
-  public func purchase(skuID: String, completion: @escaping PermissionCompletion, errored: Handler? = nil) {
+  public func purchase(skuId: String, completion: @escaping PermissionCompletion, errored: Handler? = nil) {
     print("IAPManager: Start purchase!")
     self.isLoading = true
-    retrieveInfo(skuID: skuID) { sku in
+    retrieveInfo(skuId: skuId) { sku in
       Glassfy.purchase(sku: sku) { [weak self] transaction, error in
         guard let self = self else {
           return
