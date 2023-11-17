@@ -15,8 +15,9 @@ public class IAPManager {
   public typealias Handler = (() -> Void)
   public typealias OfferingsCompletion = (([Glassfy.Offering]) -> Void)
   public typealias PermissionCompletion = (([Glassfy.Permission]) -> Void)
-  public typealias HistoryCompletion = (([Glassfy.PurchaseHistory]) -> Void)
   public typealias RetrieveInfoCompletion = ((Glassfy.Sku) -> Void)
+  public typealias PurchaseCompletion = ((Glassfy.Sku, [Glassfy.Permission]) -> Void)
+  public typealias HistoryCompletion = (([Glassfy.PurchaseHistory]) -> Void)
 
   @Published public private(set) var isLoading = false
 
@@ -71,7 +72,7 @@ public class IAPManager {
     }
   }
 
-  public func purchase(skuId: String, completion: @escaping PermissionCompletion, errored: Handler? = nil) {
+  public func purchase(skuId: String, completion: @escaping PurchaseCompletion, errored: Handler? = nil) {
     print("IAPManager: Start purchase!")
     self.isLoading = true
     retrieveInfo(skuId: skuId) { sku in
@@ -96,7 +97,7 @@ public class IAPManager {
         }
         self.isLoading = false
         let vaildPermissions = transaction.permissions.all.filter { $0.isValid }
-        completion(vaildPermissions)
+        completion(sku, vaildPermissions)
       }
     } errored: {
       self.isLoading = false
