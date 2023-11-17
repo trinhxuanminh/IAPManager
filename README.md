@@ -11,7 +11,7 @@ A package to help support the implementation of purchase on your **iOS** app.
 
 ### Swift Package Manager
 
-The Swift Package Manager is a tool for managing the distribution of **Swift** code. To use `AdMobManager` with Swift Package Manger, add it to dependencies in your `Package.swift`.
+The Swift Package Manager is a tool for managing the distribution of **Swift** code. To use `IAPManager` with Swift Package Manger, add it to dependencies in your `Package.swift`.
 ```swift
   dependencies: [
     .package(url: "https://github.com/trinhxuanminh/IAPManager.git")
