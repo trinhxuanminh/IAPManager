@@ -5,7 +5,10 @@ A package to help support the implementation of purchase on your **iOS** app.
 - Support for apps from iOS 13.0 or newer.
 
 ## Type
-- Subscription
+- Consumable
+- Non-Consumable
+- Non-Renewing Subscription
+- Auto-Renewing Subcription
 
 ## Installation
 
@@ -34,30 +37,28 @@ Initialize, fetch available products.
 
 ##### Parameters:
 - apiKey: Glassfy access key.
-- offeringKey: Offering identifier.
-- permissionKey: Permission identifier.
 ```swift
-IAPManager.shared.initialize(apiKey: String, offeringKey: String, permissionKey: String)
+IAPManager.shared.initialize(apiKey: String)
 ```
 
 ### 2. Control
 
-#### isPremium
-Variable indicating whether the user has purchased a subscription.
-
-#### isLoading
-Variable that indicates the system is processing purchase or restore.
+#### offerings()
+This function will return available groups and products.
+```swift
+IAPManager.shared.offerings(completion: @escaping OfferingsCompletion, errored: Handler? = nil)
+```
 
 #### verify()
-This function helps determine whether a user has purchased a subscription or not.
+This function will return valid permissions to perform unlocking functions.
 ```swift
-IAPManager.shared.verify(completed: Handler?, errored: Handler?)
+IAPManager.shared.verify(completion: @escaping PermissionCompletion, errored: Handler? = nil)
 ```
 
 #### retrieveInfo()
 This function returns product information.
 ```swift
-IAPManager.shared.retrieveInfo(productID: String, completed: @escaping RetrieveInfoHandler)
+IAPManager.shared.retrieveInfo(skuId: String, completion: @escaping RetrieveInfoCompletion, errored: Handler? = nil)
 ```
 
 #### getPriceLocale()
@@ -67,15 +68,46 @@ IAPManager.shared.getPriceLocale(product: Glassfy.Sku) -> String?
 ```
 
 #### purchase()
-This function will display the product purchase popup
+This function will return valid permissions and products to perform the functions of unlocking and handling consumables.
 ```swift
-IAPManager.shared.purchase(productID: String, completed: Handler?, errored: Handler?)
+IAPManager.shared.purchase(skuId: String, completion: @escaping PurchaseCompletion, errored: Handler? = nil)
+```
+```swift
+func unlock(_ permissions: [Glassfy.Permission]) {
+  for permission in permissions {
+    switch permission.permissionId {
+    case "premium":
+      self.isPremium = true
+      AdMobManager.shared.upgradePremium()
+    case "background":
+      print("Unlock background remover feature")
+    default:
+      print("Permission not handled")
+    }
+  }
+}
+```
+```swift
+func consumable(_ sku: Glassfy.Sku) {
+  switch sku.skuId {
+  case "big_gem":
+    print("Add: \(sku.extravars["gems"])")
+  default:
+    print("Sku not handled")
+  }
+}
 ```
 
 #### restore()
 This function is to restore purchased subscriptions.
 ```swift
-IAPManager.shared.restore(completed: Handler?, nothing: Handler?, errored: Handler?)
+IAPManager.shared.restore(completion: @escaping PermissionCompletion, errored: Handler? = nil)
+```
+
+#### historys()
+This function will return the purchase history.
+```swift
+IAPManager.shared.historys(completion: @escaping HistoryCompletion, errored: Handler? = nil)
 ```
 
 ## License
