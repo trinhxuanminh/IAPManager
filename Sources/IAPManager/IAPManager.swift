@@ -85,7 +85,10 @@ public class IAPManager {
           errored?()
           return
         }
-        guard let transaction else {
+        guard
+          let transaction,
+          transaction.receiptValidated
+        else {
           print("IAPManager: Purchase failed!")
           self.isLoading = false
           errored?()
