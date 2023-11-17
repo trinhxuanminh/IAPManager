@@ -8,7 +8,7 @@ A package to help support the implementation of purchase on your **iOS** app.
 - Consumable
 - Non-Consumable
 - Non-Renewing Subscription
-- Auto-Renewing Subcription
+- Auto-Renewing Subscription
 
 ## Installation
 
