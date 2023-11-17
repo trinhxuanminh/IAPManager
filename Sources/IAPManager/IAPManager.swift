@@ -15,6 +15,7 @@ public class IAPManager {
   public typealias Handler = (() -> Void)
   public typealias OfferingsCompletion = (([Glassfy.Offering]) -> Void)
   public typealias PermissionCompletion = (([Glassfy.Permission]) -> Void)
+  public typealias HistoryCompletion = (([Glassfy.PurchaseHistory]) -> Void)
   public typealias RetrieveInfoCompletion = ((Glassfy.Sku) -> Void)
 
   @Published public private(set) var isLoading = false
@@ -122,6 +123,23 @@ public class IAPManager {
       self.isLoading = false
       let vaildPermissions = permissions.all.filter { $0.isValid }
       completion(vaildPermissions)
+    }
+  }
+  
+  public func historys(completion: @escaping HistoryCompletion, errored: Handler? = nil) {
+    print("IAPManager: Start fetch historys!")
+    Glassfy.purchaseHistory { historys, error in
+      guard error == nil else {
+        print("IAPManager: Historys fetch failed! - \(String(describing: error))")
+        errored?()
+        return
+      }
+      guard let historys else {
+        print("IAPManager: Historys fetch failed!")
+        errored?()
+        return
+      }
+      completion(historys.all)
     }
   }
   
