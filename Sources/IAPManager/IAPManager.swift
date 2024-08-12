@@ -44,7 +44,18 @@ public class IAPManager {
 
   public func verify(completion: @escaping PermissionCompletion, errored: Handler? = nil) {
     print("IAPManager: Start verify!")
+    
+    let timeout = 10.0
+    var didVerify = false
+    DispatchQueue.main.asyncAfter(deadline: .now() + timeout) {
+      guard !didVerify else {
+        return
+      }
+      errored?()
+    }
+    
     Glassfy.permissions { permissions, error in
+      didVerify = true
       guard error == nil else {
         print("IAPManager: Verify failed! - \(String(describing: error))")
         errored?()
