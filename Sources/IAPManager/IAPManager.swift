@@ -6,169 +6,125 @@
 //
 
 import Foundation
-import Combine
-import Glassfy
+import StoreKit
 
-public class IAPManager {
+public final class IAPManager {
   public static var shared = IAPManager()
   
-  public typealias Handler = (() -> Void)
-  public typealias OfferingsCompletion = (([Glassfy.Offering]) -> Void)
-  public typealias PermissionCompletion = (([Glassfy.Permission]) -> Void)
-  public typealias RetrieveInfoCompletion = ((Glassfy.Sku) -> Void)
-  public typealias PurchaseCompletion = ((Glassfy.Sku, [Glassfy.Permission]) -> Void)
-  public typealias HistoryCompletion = (([Glassfy.PurchaseHistory]) -> Void)
-
-  @Published public private(set) var isLoading = false
-
-  public func initialize(apiKey: String) {
-    Glassfy.initialize(apiKey: apiKey, watcherMode: false)
+  public enum PurchaseError: Error {
+    case notAvailable
+    case unverified
+    case userCancelled
+    case pending
+    case unknown
   }
   
-  public func offerings(completion: @escaping OfferingsCompletion, errored: Handler? = nil) {
-    print("IAPManager: Start fetch offerings!")
-    Glassfy.offerings { offerings, error in
-      guard error == nil else {
-        print("IAPManager: Offerings fetch failed! - \(String(describing: error))")
-        errored?()
-        return
-      }
-      guard let offerings else {
-        print("IAPManager: Offerings fetch failed!")
-        errored?()
-        return
-      }
-      completion(offerings.all)
-    }
+  @Published public private(set) var isPurchasing = false
+  private var permissions = [BasePermission]()
+  
+  public func initialize(permissions: [BasePermission]) {
+    self.permissions = permissions
+    observeTransactions()
   }
-
-  public func verify(completion: @escaping PermissionCompletion, errored: Handler? = nil) {
-    print("IAPManager: Start verify!")
+  
+  public func purchase(_ product: BaseProduct) async throws -> (type: Product.ProductType, product: BaseProduct, permissions: [BasePermission]) {
+    self.isPurchasing = true
+    let skProduct = try await retrieveInfo(product: product)
+    let result = try await skProduct.purchase()
     
-    let timeout = 10.0
-    var didVerify = false
-    DispatchQueue.main.asyncAfter(deadline: .now() + timeout) {
-      guard !didVerify else {
-        return
-      }
-      errored?()
+    switch result {
+    case .success(let verification):
+      let transaction = try await checkVerified(verification)
+      let permissions = try await handleTransaction(transaction)
+      await transaction.finish()
+      self.isPurchasing = false
+      return (transaction.productType, product, permissions)
+    case .userCancelled:
+      self.isPurchasing = false
+      throw PurchaseError.userCancelled
+    case .pending:
+      self.isPurchasing = false
+      throw PurchaseError.pending
+    @unknown default:
+      self.isPurchasing = false
+      throw PurchaseError.unknown
     }
+  }
+  
+  public func verify() async throws -> [BasePermission] {
+    var resultPermissions = [BasePermission]()
     
-    Glassfy.permissions { permissions, error in
-      didVerify = true
-      guard error == nil else {
-        print("IAPManager: Verify failed! - \(String(describing: error))")
-        errored?()
-        return
+    for await verification in Transaction.currentEntitlements {
+      let transaction = try await checkVerified(verification)
+      if let expirationDate = transaction.expirationDate, expirationDate > Date() {
+        let permissions = try await handleTransaction(transaction)
+        resultPermissions += permissions
       }
-      guard let permissions else {
-        print("IAPManager: Permissions fetch failed!")
-        errored?()
-        return
-      }
-      let vaildPermissions = permissions.all.filter { $0.isValid }
-      completion(vaildPermissions)
+      await transaction.finish()
     }
-  }
-
-  public func retrieveInfo(skuId: String, completion: @escaping RetrieveInfoCompletion, errored: Handler? = nil) {
-    print("IAPManager: Start retrieve info!")
-    Glassfy.sku(id: skuId) { sku, error in
-      guard error == nil, let sku else {
-        print("IAPManager: SKU fetch failed! - \(String(describing: error))")
-        errored?()
-        return
-      }
-      completion(sku)
-    }
-  }
-
-  public func purchase(skuId: String, completion: @escaping PurchaseCompletion, errored: Handler? = nil) {
-    print("IAPManager: Start purchase!")
-    self.isLoading = true
-    retrieveInfo(skuId: skuId) { sku in
-      Glassfy.purchase(sku: sku) { [weak self] transaction, error in
-        guard let self = self else {
-          return
-        }
-        guard error == nil else {
-          print("IAPManager: Purchase failed! - \(String(describing: error))")
-          self.isLoading = false
-          errored?()
-          return
-        }
-        guard
-          let transaction,
-          transaction.receiptValidated
-        else {
-          print("IAPManager: Purchase failed!")
-          self.isLoading = false
-          errored?()
-          return
-        }
-        self.isLoading = false
-        let vaildPermissions = transaction.permissions.all.filter { $0.isValid }
-        completion(sku, vaildPermissions)
-      }
-    } errored: {
-      self.isLoading = false
-      errored?()
-    }
-  }
-
-  public func restore(completion: @escaping PermissionCompletion, errored: Handler? = nil) {
-    print("IAPManager: Start restore!")
-    self.isLoading = true
-    Glassfy.restorePurchases { [weak self] permissions, error in
-      guard let self = self else {
-        return
-      }
-      guard error == nil else {
-        print("IAPManager: Restore failed! - \(String(describing: error))")
-        self.isLoading = false
-        errored?()
-        return
-      }
-      guard let permissions else {
-        print("IAPManager: Restore failed!")
-        self.isLoading = false
-        errored?()
-        return
-      }
-      self.isLoading = false
-      let vaildPermissions = permissions.all.filter { $0.isValid }
-      completion(vaildPermissions)
-    }
+    return resultPermissions
   }
   
-  public func historys(completion: @escaping HistoryCompletion, errored: Handler? = nil) {
-    print("IAPManager: Start fetch historys!")
-    Glassfy.purchaseHistory { historys, error in
-      guard error == nil else {
-        print("IAPManager: Historys fetch failed! - \(String(describing: error))")
-        errored?()
-        return
-      }
-      guard let historys else {
-        print("IAPManager: Historys fetch failed!")
-        errored?()
-        return
-      }
-      completion(historys.all)
-    }
+  public func restore() async throws -> [BasePermission] {
+    try await verify()
   }
   
-  public func getPriceLocale(sku: Glassfy.Sku) -> String? {
-    let product = sku.product
-    return priceFormatter(locale: product.priceLocale).string(from: product.price)
+  public func historys() async -> [Transaction] {
+    var purchaseHistory: [Transaction] = []
+    
+    for await result in Transaction.all {
+      switch result {
+      case .verified(let transaction):
+        purchaseHistory.append(transaction)
+      case .unverified:
+        break
+      }
+    }
+    return purchaseHistory
+  }
+  
+  public func retrieveInfo(product: BaseProduct) async throws -> Product {
+    let skProducts = try await Product.products(for: [product.id])
+    
+    guard let skProduct = skProducts.first else {
+      throw PurchaseError.notAvailable
+    }
+    return skProduct
+  }
+  
+  public func getPriceLocale(product: Product) -> String? {
+    return product.displayPrice
   }
 }
 
 extension IAPManager {
-  private func priceFormatter(locale: Locale) -> NumberFormatter {
-    let formatter = NumberFormatter()
-    formatter.locale = locale
-    formatter.numberStyle = .currency
-    return formatter
+  private func checkVerified(_ result: VerificationResult<Transaction>) async throws -> Transaction {
+    switch result {
+    case .unverified:
+      throw PurchaseError.unverified
+    case .verified(let transaction):
+      return transaction
+    }
+  }
+  
+  private func handleTransaction(_ transaction: Transaction) async throws -> [BasePermission] {
+    return permissions.filter { permission in
+      return permission.products.contains { product in
+        return product.id == transaction.productID
+      }
+    }
+  }
+  
+  private func observeTransactions() {
+    Task.detached {
+      for await verification in Transaction.updates {
+        do {
+          let transaction = try await self.checkVerified(verification)
+          await transaction.finish()
+        } catch {
+          print("[IAPManager] Transaction failed verification: \(error)")
+        }
+      }
+    }
   }
 }
