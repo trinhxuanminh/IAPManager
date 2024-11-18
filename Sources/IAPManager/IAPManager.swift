@@ -56,9 +56,17 @@ public final class IAPManager {
     
     for await verification in Transaction.currentEntitlements {
       let transaction = try await checkVerified(verification)
-      if let expirationDate = transaction.expirationDate, expirationDate > Date() {
+      switch transaction.productType {
+      case .autoRenewable, .nonRenewable:
+        if let expirationDate = transaction.expirationDate, expirationDate > Date() {
+          let permissions = try await handleTransaction(transaction)
+          resultPermissions += permissions
+        }
+      case .nonConsumable:
         let permissions = try await handleTransaction(transaction)
         resultPermissions += permissions
+      default:
+        break
       }
       await transaction.finish()
     }
