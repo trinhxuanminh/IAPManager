@@ -24,6 +24,9 @@ The Swift Package Manager is a tool for managing the distribution of **Swift** c
 ## Get started
 Make sure you have created products on `AppStoreConnect`.
 
+## Demo
+Refer to the following [Demo project](https://github.com/trinhxuanminh/DemoIAPManager/tree/develop/1.3.0) to implement the purchase.
+
 ## Usage
 Firstly, import `IAPManager`.
 ```swift
