@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import FirebaseAnalytics
 import StoreKit
 
 public final class IAPManager {
@@ -36,6 +37,7 @@ public final class IAPManager {
     case .success(let verification):
       let transaction = try await checkVerified(verification)
       let permissions = try await handleTransaction(transaction)
+      Analytics.logTransaction(transaction)
       await transaction.finish()
       self.isPurchasing = false
       return (transaction.productType, product, permissions)
