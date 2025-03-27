@@ -41,9 +41,14 @@ public final class IAPManager: NSObject {
     }
     
     self.isPurchasing = true
+    var isResumed = false
     
     return try await withCheckedThrowingContinuation { continuation in
       self.updatedTransaction = { transactions in
+        guard !isResumed else {
+          return
+        }
+      
         for transaction in transactions {
           switch transaction.transactionState {
           case .purchasing:
@@ -54,6 +59,7 @@ public final class IAPManager: NSObject {
             SKPaymentQueue.default().finishTransaction(transaction)
             self.isPurchasing = false
             
+            isResumed = true
             continuation.resume(returning: (product, permissions))
           case .failed:
             print("[IAPManager] Purchase failed! - \(String(describing: transaction.error?.localizedDescription))")
@@ -61,8 +67,10 @@ public final class IAPManager: NSObject {
             self.isPurchasing = false
             
             if let error = transaction.error as? NSError, error.code == SKError.paymentCancelled.rawValue {
+              isResumed = true
               continuation.resume(throwing: PurchaseError.userCancelled)
             } else {
+              isResumed = true
               continuation.resume(throwing: PurchaseError.unknown)
             }
           default:
@@ -77,9 +85,13 @@ public final class IAPManager: NSObject {
   
   public func restore() async throws -> [BasePermission] {
     self.isPurchasing = true
+    var isResumed = false
     
     return try await withCheckedThrowingContinuation { continuation in
       self.updatedTransaction = { transactions in
+        guard !isResumed else {
+          return
+        }
         var resultPermissions = [BasePermission]()
 
         for transaction in transactions {
@@ -94,6 +106,7 @@ public final class IAPManager: NSObject {
             SKPaymentQueue.default().finishTransaction(transaction)
             self.isPurchasing = false
             
+            isResumed = true
             continuation.resume(throwing: PurchaseError.unknown)
             return
           default:
@@ -102,6 +115,7 @@ public final class IAPManager: NSObject {
         }
         self.isPurchasing = false
         
+        isResumed = true
         continuation.resume(returning: resultPermissions)
       }
       SKPaymentQueue.default().restoreCompletedTransactions()
