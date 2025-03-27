@@ -32,7 +32,7 @@ public final class IAPManager: NSObject {
     fetch(products)
   }
   
-  public func purchase(_ product: BaseProduct) async throws -> (BaseProduct, [BasePermission]) {
+  public func purchase(_ product: BaseProduct) async throws -> (product: BaseProduct, permissions: [BasePermission]) {
     guard SKPaymentQueue.canMakePayments() else {
       throw PurchaseError.notPayment
     }
