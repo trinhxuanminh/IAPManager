@@ -115,8 +115,13 @@ public final class IAPManager: NSObject {
   public func historys() async -> [SKPaymentTransaction] {
     return await withCheckedContinuation { continuation in
       var transactionsHistory: [SKPaymentTransaction] = []
+      var isResumed = false
       
       self.updatedTransaction = { transactions in
+        guard !isResumed else {
+          return
+        }
+        
         for transaction in transactions {
           switch transaction.transactionState {
           case .purchased, .restored:
@@ -125,6 +130,7 @@ public final class IAPManager: NSObject {
             break
           }
         }
+        isResumed = true
         continuation.resume(returning: transactionsHistory)
       }
       SKPaymentQueue.default().restoreCompletedTransactions()
