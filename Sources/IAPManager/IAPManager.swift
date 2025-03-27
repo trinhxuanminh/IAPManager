@@ -216,7 +216,7 @@ extension IAPManager {
     let receiptBase64 = receiptData.base64EncodedString()
     let verifyReceiptBody = VerifyReceiptBody(receipt: receiptBase64,
                                               sharedSecret: sharedSecret,
-                                              excludeOldTransactions: false)
+                                              excludeOldTransactions: true)
     guard let bodyData = try? JSONEncoder().encode(verifyReceiptBody) else {
       throw APIError.jsonEncodingError
     }
