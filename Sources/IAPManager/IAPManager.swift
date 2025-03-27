@@ -125,7 +125,8 @@ public final class IAPManager: NSObject {
   }
   
   public func verify(sharedSecret: String) async throws {
-    try await verifyReceipt(sharedSecret)
+    let verifyReceipt = try await verifyReceipt(sharedSecret)
+    print("[IAPManager]", verifyReceipt)
   }
 
   public func historys() async -> [SKPaymentTransaction] {
@@ -205,7 +206,7 @@ extension IAPManager {
     productRequest?.start()
   }
   
-  public func verifyReceipt(_ sharedSecret: String) async throws {
+  private func verifyReceipt(_ sharedSecret: String) async throws -> VerifyReceipt {
     guard
       let receiptURL = Bundle.main.appStoreReceiptURL,
       let receiptData = try? Data(contentsOf: receiptURL)
@@ -215,10 +216,11 @@ extension IAPManager {
     let receiptBase64 = receiptData.base64EncodedString()
     let verifyReceiptBody = VerifyReceiptBody(receipt: receiptBase64,
                                               sharedSecret: sharedSecret,
-                                              excludeOldTransactions: true)
+                                              excludeOldTransactions: false)
     guard let bodyData = try? JSONEncoder().encode(verifyReceiptBody) else {
       throw APIError.jsonEncodingError
     }
-    try await APIService().request(from: .verifyReceipt, body: bodyData)
+    let verifyReceipt: VerifyReceipt = try await APIService().request(from: .verifyReceipt, body: bodyData)
+    return verifyReceipt
   }
 }
