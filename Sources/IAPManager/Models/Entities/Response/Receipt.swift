@@ -16,13 +16,13 @@ struct Receipt: Codable {
   let downloadID: Int
   let versionExternalIdentifier: Int
   let receiptCreationDate: String
-  let receiptCreationDateMS: Int
+  let receiptCreationDateMS: String
   let receiptCreationDatePST: String
   let requestDate: String
   let requestDateMS: Int
   let requestDatePST: String
   let originalPurchaseDate: String
-  let originalPurchaseDateMS: Int
+  let originalPurchaseDateMS: String
   let originalPurchaseDatePST: String
   let originalApplicationVersion: String
   let inApp: [InAppPurchase]

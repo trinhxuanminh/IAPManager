@@ -13,13 +13,13 @@ struct InAppPurchase: Codable {
   let transactionID: String
   let originalTransactionID: String
   let purchaseDate: String
-  let purchaseDateMS: Int
+  let purchaseDateMS: String
   let purchaseDatePST: String
   let originalPurchaseDate: String
   let originalPurchaseDateMS: Int
   let originalPurchaseDatePST: String
   let expiresDate: String
-  let expiresDateMS: Int
+  let expiresDateMS: String
   let expiresDatePST: String
   let webOrderLineItemID: Int
   let isTrialPeriod: Bool
