@@ -12,6 +12,7 @@ public final class IAPManager: NSObject {
   public static let shared = IAPManager()
   
   public enum PurchaseError: Error {
+    case notInitialized
     case notPayment
     case notAvailable
     case unverified
@@ -20,12 +21,14 @@ public final class IAPManager: NSObject {
   }
   
   @Published public private(set) var isPurchasing = false
+  private var sharedSecret: String?
   private var permissions = [BasePermission]()
   private var products: [String: SKProduct] = [:]
   private var productRequest: SKProductsRequest?
   private var updatedTransaction: UpdatedTransaction?
   
-  public func initialize(products: [BaseProduct], permissions: [BasePermission]) {
+  public func initialize(sharedSecret: String, products: [BaseProduct], permissions: [BasePermission]) {
+    self.sharedSecret = sharedSecret
     self.permissions = permissions
     SKPaymentQueue.default().add(self)
     observeTransactions()
@@ -124,34 +127,19 @@ public final class IAPManager: NSObject {
     }
   }
   
-  public func verify(sharedSecret: String) async throws {
-    let verifyReceipt = try await verifyReceipt(sharedSecret)
-    print("[IAPManager]", verifyReceipt)
+  public func verify() async throws -> [BasePermission] {
+    guard let sharedSecret else {
+      throw PurchaseError.notInitialized
+    }
+//    let verifyReceipt = try await verifyReceipt(sharedSecret)
+    return []
   }
 
-  public func historys() async -> [SKPaymentTransaction] {
-    return await withCheckedContinuation { continuation in
-      var transactionsHistory: [SKPaymentTransaction] = []
-      var isResumed = false
-      
-      self.updatedTransaction = { transactions in
-        guard !isResumed else {
-          return
-        }
-        
-        for transaction in transactions {
-          switch transaction.transactionState {
-          case .purchased, .restored:
-            transactionsHistory.append(transaction)
-          default:
-            break
-          }
-        }
-        isResumed = true
-        continuation.resume(returning: transactionsHistory)
-      }
-      SKPaymentQueue.default().restoreCompletedTransactions()
+  public func historys() async throws -> VerifyReceipt {
+    guard let sharedSecret else {
+      throw PurchaseError.notInitialized
     }
+    return try await verifyReceipt(sharedSecret)
   }
   
   public func retrieveInfo(product: BaseProduct) async throws -> Product {

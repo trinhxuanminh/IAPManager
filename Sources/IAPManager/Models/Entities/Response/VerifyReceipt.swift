@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct VerifyReceipt: Codable {
+public struct VerifyReceipt: Codable {
   let status: Int?
   let environment: String?
   let receipt: Receipt?

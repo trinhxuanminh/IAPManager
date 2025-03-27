@@ -24,7 +24,6 @@ final class APIService {
     default:
       throw APIError.invalidResponse
     }
-    print(String(data: data, encoding: .utf8) as Any)
     let decodeData = try JSONDecoder().decode(T.self, from: data)
     return decodeData
   }
@@ -45,6 +44,5 @@ final class APIService {
     default:
       throw APIError.invalidResponse
     }
-    print(String(data: data, encoding: .utf8) as Any)
   }
 }

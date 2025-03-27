@@ -9,5 +9,3 @@ import Foundation
 import StoreKit
 
 typealias UpdatedTransaction = (([SKPaymentTransaction]) -> Void)
-public typealias PurchasedHandler = ((BaseProduct, [BasePermission]) -> Void)
-public typealias ErrorHandler = ((Error) -> Void)
