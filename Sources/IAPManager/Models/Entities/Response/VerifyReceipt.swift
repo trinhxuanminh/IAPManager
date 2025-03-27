@@ -10,10 +10,10 @@ import Foundation
 struct VerifyReceipt: Codable {
   let status: Int
   let environment: String
-  let receipt: Receipt
-  let latestReceiptInfo: [InAppPurchase]
-  let latestReceipt: String
-  let pendingRenewalInfo: [RenewalInfo]
+  let receipt: Receipt?
+  let latestReceiptInfo: [InAppPurchase]?
+  let latestReceipt: String?
+  let pendingRenewalInfo: [RenewalInfo]?
   
   enum CodingKeys: String, CodingKey {
     case status
