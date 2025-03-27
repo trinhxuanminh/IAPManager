@@ -8,7 +8,7 @@
 import Foundation
 
 struct InAppPurchase: Codable {
-  let quantity: Int
+  let quantity: String
   let productID: String
   let transactionID: String
   let originalTransactionID: String
@@ -21,7 +21,7 @@ struct InAppPurchase: Codable {
   let expiresDate: String
   let expiresDateMS: String
   let expiresDatePST: String
-  let webOrderLineItemID: Int
+  let webOrderLineItemID: String
   let isTrialPeriod: Bool
   let isInIntroOfferPeriod: Bool
   let inAppOwnershipType: String

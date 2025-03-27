@@ -8,7 +8,7 @@
 import Foundation
 
 struct RenewalInfo: Codable {
-  let expirationIntent: Int?
+  let expirationIntent: String
   let autoRenewProductID: String
   let isInBillingRetryPeriod: Bool
   let productID: String
