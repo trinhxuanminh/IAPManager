@@ -8,12 +8,12 @@
 import Foundation
 
 struct RenewalInfo: Codable {
-  let expirationIntent: String
-  let autoRenewProductID: String
-  let isInBillingRetryPeriod: Bool
-  let productID: String
-  let originalTransactionID: String
-  let autoRenewStatus: Bool
+  let expirationIntent: String?
+  let autoRenewProductID: String?
+  let isInBillingRetryPeriod: Bool?
+  let productID: String?
+  let originalTransactionID: String?
+  let autoRenewStatus: Bool?
   
   enum CodingKeys: String, CodingKey {
     case expirationIntent = "expiration_intent"

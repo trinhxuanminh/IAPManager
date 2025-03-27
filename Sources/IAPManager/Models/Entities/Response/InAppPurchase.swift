@@ -8,23 +8,23 @@
 import Foundation
 
 struct InAppPurchase: Codable {
-  let quantity: String
-  let productID: String
-  let transactionID: String
-  let originalTransactionID: String
-  let purchaseDate: String
-  let purchaseDateMS: String
-  let purchaseDatePST: String
-  let originalPurchaseDate: String
-  let originalPurchaseDateMS: String
-  let originalPurchaseDatePST: String
-  let expiresDate: String
-  let expiresDateMS: String
-  let expiresDatePST: String
-  let webOrderLineItemID: String
-  let isTrialPeriod: String
-  let isInIntroOfferPeriod: String
-  let inAppOwnershipType: String
+  let quantity: String?
+  let productID: String?
+  let transactionID: String?
+  let originalTransactionID: String?
+  let purchaseDate: String?
+  let purchaseDateMS: String?
+  let purchaseDatePST: String?
+  let originalPurchaseDate: String?
+  let originalPurchaseDateMS: String?
+  let originalPurchaseDatePST: String?
+  let expiresDate: String?
+  let expiresDateMS: String?
+  let expiresDatePST: String?
+  let webOrderLineItemID: String?
+  let isTrialPeriod: String?
+  let isInIntroOfferPeriod: String?
+  let inAppOwnershipType: String?
   let subscriptionGroupIdentifier: String?
   
   enum CodingKeys: String, CodingKey {

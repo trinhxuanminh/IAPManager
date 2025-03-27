@@ -8,24 +8,24 @@
 import Foundation
 
 struct Receipt: Codable {
-  let receiptType: String
-  let adamID: Int
-  let appItemID: Int
-  let bundleID: String
-  let applicationVersion: String
-  let downloadID: Int
-  let versionExternalIdentifier: Int
-  let receiptCreationDate: String
-  let receiptCreationDateMS: String
-  let receiptCreationDatePST: String
-  let requestDate: String
-  let requestDateMS: String
-  let requestDatePST: String
-  let originalPurchaseDate: String
-  let originalPurchaseDateMS: String
-  let originalPurchaseDatePST: String
-  let originalApplicationVersion: String
-  let inApp: [InAppPurchase]
+  let receiptType: String?
+  let adamID: Int?
+  let appItemID: Int?
+  let bundleID: String?
+  let applicationVersion: String?
+  let downloadID: Int?
+  let versionExternalIdentifier: Int?
+  let receiptCreationDate: String?
+  let receiptCreationDateMS: String?
+  let receiptCreationDatePST: String?
+  let requestDate: String?
+  let requestDateMS: String?
+  let requestDatePST: String?
+  let originalPurchaseDate: String?
+  let originalPurchaseDateMS: String?
+  let originalPurchaseDatePST: String?
+  let originalApplicationVersion: String?
+  let inApp: [InAppPurchase]?
   
   enum CodingKeys: String, CodingKey {
     case receiptType = "receipt_type"
