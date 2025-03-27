@@ -6,91 +6,129 @@
 //
 
 import Foundation
-import FirebaseAnalytics
 import StoreKit
 
-public final class IAPManager {
-  public static var shared = IAPManager()
+public final class IAPManager: NSObject {
+  public static let shared = IAPManager()
   
   public enum PurchaseError: Error {
+    case notPayment
     case notAvailable
     case unverified
     case userCancelled
-    case pending
     case unknown
   }
   
   @Published public private(set) var isPurchasing = false
   private var permissions = [BasePermission]()
+  private var products: [String: SKProduct] = [:]
+  private var productRequest: SKProductsRequest?
+  private var updatedTransaction: UpdatedTransaction?
   
-  public func initialize(permissions: [BasePermission]) {
+  public func initialize(products: [BaseProduct], permissions: [BasePermission]) {
     self.permissions = permissions
+    SKPaymentQueue.default().add(self)
     observeTransactions()
+    fetch(products)
   }
   
-  public func purchase(_ product: BaseProduct) async throws -> (type: Product.ProductType, product: BaseProduct, permissions: [BasePermission]) {
+  public func purchase(_ product: BaseProduct) async throws -> (BaseProduct, [BasePermission]) {
+    guard SKPaymentQueue.canMakePayments() else {
+      throw PurchaseError.notPayment
+    }
+    guard let skProduct = products[product.id] else {
+      throw PurchaseError.notAvailable
+    }
+    
     self.isPurchasing = true
-    let skProduct = try await retrieveInfo(product: product)
-    let result = try await skProduct.purchase()
     
-    switch result {
-    case .success(let verification):
-      let transaction = try await checkVerified(verification)
-      let permissions = try await handleTransaction(transaction)
-      Analytics.logTransaction(transaction)
-      await transaction.finish()
-      self.isPurchasing = false
-      return (transaction.productType, product, permissions)
-    case .userCancelled:
-      self.isPurchasing = false
-      throw PurchaseError.userCancelled
-    case .pending:
-      self.isPurchasing = false
-      throw PurchaseError.pending
-    @unknown default:
-      self.isPurchasing = false
-      throw PurchaseError.unknown
-    }
-  }
-  
-  public func verify() async throws -> [BasePermission] {
-    var resultPermissions = [BasePermission]()
-    
-    for await verification in Transaction.currentEntitlements {
-      let transaction = try await checkVerified(verification)
-      switch transaction.productType {
-      case .autoRenewable, .nonRenewable:
-        if let expirationDate = transaction.expirationDate, expirationDate > Date() {
-          let permissions = try await handleTransaction(transaction)
-          resultPermissions += permissions
+    return try await withCheckedThrowingContinuation { continuation in
+      self.updatedTransaction = { transactions in
+        for transaction in transactions {
+          switch transaction.transactionState {
+          case .purchasing:
+            print("[IAPManager] Purchasing!")
+          case .purchased:
+            print("[IAPManager] Purchased!")
+            let permissions = self.handleTransaction(transaction)
+            SKPaymentQueue.default().finishTransaction(transaction)
+            self.isPurchasing = false
+            
+            continuation.resume(returning: (product, permissions))
+          case .failed:
+            print("[IAPManager] Purchase failed! - \(String(describing: transaction.error?.localizedDescription))")
+            SKPaymentQueue.default().finishTransaction(transaction)
+            self.isPurchasing = false
+            
+            if let error = transaction.error as? NSError, error.code == SKError.paymentCancelled.rawValue {
+              continuation.resume(throwing: PurchaseError.userCancelled)
+            } else {
+              continuation.resume(throwing: PurchaseError.unknown)
+            }
+          default:
+            break
+          }
         }
-      case .nonConsumable:
-        let permissions = try await handleTransaction(transaction)
-        resultPermissions += permissions
-      default:
-        break
       }
-      await transaction.finish()
+      let payment = SKPayment(product: skProduct)
+      SKPaymentQueue.default().add(payment)
     }
-    return resultPermissions
   }
   
   public func restore() async throws -> [BasePermission] {
-    try await verify()
+    self.isPurchasing = true
+    
+    return try await withCheckedThrowingContinuation { continuation in
+      self.updatedTransaction = { transactions in
+        var resultPermissions = [BasePermission]()
+
+        for transaction in transactions {
+          switch transaction.transactionState {
+          case .restored:
+            print("[IAPManager] Restored: \(transaction.payment.productIdentifier)")
+            let permissions = self.handleTransaction(transaction)
+            resultPermissions += permissions
+            SKPaymentQueue.default().finishTransaction(transaction)
+          case .failed:
+            print("[IAPManager] Restore failed! - \(String(describing: transaction.error?.localizedDescription))")
+            SKPaymentQueue.default().finishTransaction(transaction)
+            self.isPurchasing = false
+            
+            continuation.resume(throwing: PurchaseError.unknown)
+            return
+          default:
+            break
+          }
+        }
+        self.isPurchasing = false
+        
+        continuation.resume(returning: resultPermissions)
+      }
+      SKPaymentQueue.default().restoreCompletedTransactions()
+    }
   }
   
-  public func historys() async -> [Transaction] {
-    var purchaseHistory: [Transaction] = []
-    
-    for await result in Transaction.all {
-      switch result {
-      case .verified(let transaction):
-        purchaseHistory.append(transaction)
-      case .unverified:
-        break
+  public func verify(sharedSecret: String) async throws {
+    try await verifyReceipt(sharedSecret)
+  }
+
+  public func historys() async -> [SKPaymentTransaction] {
+    return await withCheckedContinuation { continuation in
+      var transactionsHistory: [SKPaymentTransaction] = []
+      
+      self.updatedTransaction = { transactions in
+        for transaction in transactions {
+          switch transaction.transactionState {
+          case .purchased, .restored:
+            transactionsHistory.append(transaction)
+          default:
+            break
+          }
+        }
+        continuation.resume(returning: transactionsHistory)
       }
+      SKPaymentQueue.default().restoreCompletedTransactions()
     }
-    return purchaseHistory
   }
   
   public func retrieveInfo(product: BaseProduct) async throws -> Product {
@@ -107,34 +145,58 @@ public final class IAPManager {
   }
 }
 
-extension IAPManager {
-  private func checkVerified(_ result: VerificationResult<Transaction>) async throws -> Transaction {
-    switch result {
-    case .unverified:
-      throw PurchaseError.unverified
-    case .verified(let transaction):
-      return transaction
+extension IAPManager: SKProductsRequestDelegate {
+  public func productsRequest(_ request: SKProductsRequest, didReceive response: SKProductsResponse) {
+    for product in response.products {
+      self.products[product.productIdentifier] = product
     }
   }
-  
-  private func handleTransaction(_ transaction: Transaction) async throws -> [BasePermission] {
+}
+
+extension IAPManager: SKPaymentTransactionObserver {
+  public func paymentQueue(_ queue: SKPaymentQueue, updatedTransactions transactions: [SKPaymentTransaction]) {
+    updatedTransaction?(transactions)
+  }
+}
+
+extension IAPManager {
+  private func handleTransaction(_ transaction: SKPaymentTransaction) -> [BasePermission] {
     return permissions.filter { permission in
       return permission.products.contains { product in
-        return product.id == transaction.productID
+        return product.id == transaction.payment.productIdentifier
       }
     }
   }
   
   private func observeTransactions() {
-    Task.detached {
-      for await verification in Transaction.updates {
-        do {
-          let transaction = try await self.checkVerified(verification)
-          await transaction.finish()
-        } catch {
-          print("[IAPManager] Transaction failed verification: \(error)")
-        }
+    for transaction in SKPaymentQueue.default().transactions {
+      if transaction.transactionState == .purchased || transaction.transactionState == .restored {
+        SKPaymentQueue.default().finishTransaction(transaction)
       }
     }
+  }
+  
+  private func fetch(_ products: [BaseProduct]) {
+    productRequest?.cancel()
+    self.productRequest = SKProductsRequest(productIdentifiers: Set(products.map({ $0.id })))
+    productRequest?.delegate = self
+    productRequest?.start()
+  }
+  
+  public func verifyReceipt(_ sharedSecret: String) async throws {
+    guard
+      let receiptURL = Bundle.main.appStoreReceiptURL,
+      let receiptData = try? Data(contentsOf: receiptURL)
+    else {
+      throw APIError.invalidRequest
+    }
+    let receiptBase64 = receiptData.base64EncodedString()
+    let verifyReceiptBody = VerifyReceiptBody(receipt: receiptBase64,
+                                              sharedSecret: sharedSecret,
+                                              excludeOldTransactions: true)
+    guard let bodyData = try? JSONEncoder().encode(verifyReceiptBody) else {
+      throw APIError.jsonEncodingError
+    }
+    try await APIService().request(from: .verifyReceipt, body: bodyData)
   }
 }
