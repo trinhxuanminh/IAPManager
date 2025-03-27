@@ -22,13 +22,15 @@ public final class IAPManager: NSObject {
   
   @Published public private(set) var isPurchasing = false
   private var sharedSecret: String?
+  private var products = [BaseProduct]()
   private var permissions = [BasePermission]()
-  private var products: [String: SKProduct] = [:]
+  private var skProducts: [String: SKProduct] = [:]
   private var productRequest: SKProductsRequest?
   private var updatedTransaction: UpdatedTransaction?
   
   public func initialize(sharedSecret: String, products: [BaseProduct], permissions: [BasePermission]) {
     self.sharedSecret = sharedSecret
+    self.products = products
     self.permissions = permissions
     SKPaymentQueue.default().add(self)
     observeTransactions()
@@ -39,7 +41,7 @@ public final class IAPManager: NSObject {
     guard SKPaymentQueue.canMakePayments() else {
       throw PurchaseError.notPayment
     }
-    guard let skProduct = products[product.id] else {
+    guard let skProduct = skProducts[product.id] else {
       throw PurchaseError.notAvailable
     }
     
@@ -58,7 +60,7 @@ public final class IAPManager: NSObject {
             print("[IAPManager] Purchasing!")
           case .purchased, .restored:
             print("[IAPManager] Purchased!")
-            let permissions = self.handleTransaction(transaction)
+            let permissions = self.getPermission(transaction.payment.productIdentifier)
             SKPaymentQueue.default().finishTransaction(transaction)
             self.isPurchasing = false
             
@@ -103,7 +105,7 @@ public final class IAPManager: NSObject {
           switch transaction.transactionState {
           case .restored:
             print("[IAPManager] Restored: \(transaction.payment.productIdentifier)")
-            let permissions = self.handleTransaction(transaction)
+            let permissions = self.getPermission(transaction.payment.productIdentifier)
             resultPermissions += permissions
             SKPaymentQueue.default().finishTransaction(transaction)
           case .failed:
@@ -131,8 +133,43 @@ public final class IAPManager: NSObject {
     guard let sharedSecret else {
       throw PurchaseError.notInitialized
     }
-//    let verifyReceipt = try await verifyReceipt(sharedSecret)
-    return []
+    let verifyReceipt = try await verifyReceipt(sharedSecret)
+    guard let latestReceiptInfo = verifyReceipt.latestReceiptInfo else {
+      return []
+    }
+    var resultPermissions = [BasePermission]()
+    
+    for inAppPurchase in latestReceiptInfo {
+      guard
+        let productID = inAppPurchase.productID,
+        let product = products.first(where: { $0.id == productID })
+      else {
+        break
+      }
+      
+      switch product.productType {
+      case .autoRenewable, .nonRenewable:
+        guard
+          let expiresDateMS = inAppPurchase.expiresDateMS,
+          let expiresDateTimeInterval = TimeInterval(expiresDateMS)
+        else {
+          break
+        }
+        let expiresDate = Date(timeIntervalSince1970: expiresDateTimeInterval / 1000)
+        
+        guard expiresDate > Date() else {
+          break
+        }
+        let permissions = getPermission(productID)
+        resultPermissions += permissions
+      case .nonConsumable:
+        let permissions = getPermission(productID)
+        resultPermissions += permissions
+      default:
+        break
+      }
+    }
+    return resultPermissions
   }
 
   public func historys() async throws -> VerifyReceipt {
@@ -159,7 +196,7 @@ public final class IAPManager: NSObject {
 extension IAPManager: SKProductsRequestDelegate {
   public func productsRequest(_ request: SKProductsRequest, didReceive response: SKProductsResponse) {
     for product in response.products {
-      self.products[product.productIdentifier] = product
+      self.skProducts[product.productIdentifier] = product
     }
   }
 }
@@ -171,10 +208,10 @@ extension IAPManager: SKPaymentTransactionObserver {
 }
 
 extension IAPManager {
-  private func handleTransaction(_ transaction: SKPaymentTransaction) -> [BasePermission] {
+  private func getPermission(_ productID: String) -> [BasePermission] {
     return permissions.filter { permission in
       return permission.products.contains { product in
-        return product.id == transaction.payment.productIdentifier
+        return product.id == productID
       }
     }
   }
