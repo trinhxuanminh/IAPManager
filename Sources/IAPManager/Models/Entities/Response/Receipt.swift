@@ -14,7 +14,7 @@ struct Receipt: Codable {
   let bundleID: String
   let applicationVersion: String
   let downloadID: Int
-  let versionExternalIdentifier: String
+  let versionExternalIdentifier: Int
   let receiptCreationDate: String
   let receiptCreationDateMS: String
   let receiptCreationDatePST: String
