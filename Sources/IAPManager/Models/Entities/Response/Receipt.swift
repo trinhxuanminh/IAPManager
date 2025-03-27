@@ -19,7 +19,7 @@ struct Receipt: Codable {
   let receiptCreationDateMS: String
   let receiptCreationDatePST: String
   let requestDate: String
-  let requestDateMS: Int
+  let requestDateMS: String
   let requestDatePST: String
   let originalPurchaseDate: String
   let originalPurchaseDateMS: String

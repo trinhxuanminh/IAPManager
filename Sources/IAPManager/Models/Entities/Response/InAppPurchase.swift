@@ -16,7 +16,7 @@ struct InAppPurchase: Codable {
   let purchaseDateMS: String
   let purchaseDatePST: String
   let originalPurchaseDate: String
-  let originalPurchaseDateMS: Int
+  let originalPurchaseDateMS: String
   let originalPurchaseDatePST: String
   let expiresDate: String
   let expiresDateMS: String
