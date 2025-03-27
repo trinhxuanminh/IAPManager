@@ -8,8 +8,8 @@
 import Foundation
 
 struct VerifyReceipt: Codable {
-  let status: Int
-  let environment: String
+  let status: Int?
+  let environment: String?
   let receipt: Receipt?
   let latestReceiptInfo: [InAppPurchase]?
   let latestReceipt: String?
