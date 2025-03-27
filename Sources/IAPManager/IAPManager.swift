@@ -53,7 +53,7 @@ public final class IAPManager: NSObject {
           switch transaction.transactionState {
           case .purchasing:
             print("[IAPManager] Purchasing!")
-          case .purchased:
+          case .purchased, .restored:
             print("[IAPManager] Purchased!")
             let permissions = self.handleTransaction(transaction)
             SKPaymentQueue.default().finishTransaction(transaction)
@@ -74,7 +74,9 @@ public final class IAPManager: NSObject {
               continuation.resume(throwing: PurchaseError.unknown)
             }
           default:
-            break
+            print("[IAPManager] Purchase deferred!")
+            isResumed = true
+            continuation.resume(throwing: PurchaseError.unknown)
           }
         }
       }
