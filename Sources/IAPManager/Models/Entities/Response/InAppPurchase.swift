@@ -22,8 +22,8 @@ struct InAppPurchase: Codable {
   let expiresDateMS: String
   let expiresDatePST: String
   let webOrderLineItemID: String
-  let isTrialPeriod: Bool
-  let isInIntroOfferPeriod: Bool
+  let isTrialPeriod: String
+  let isInIntroOfferPeriod: String
   let inAppOwnershipType: String
   let subscriptionGroupIdentifier: String?
   

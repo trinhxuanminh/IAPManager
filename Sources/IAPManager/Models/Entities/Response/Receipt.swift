@@ -9,11 +9,11 @@ import Foundation
 
 struct Receipt: Codable {
   let receiptType: String
-  let adamID: String
-  let appItemID: String
+  let adamID: Int
+  let appItemID: Int
   let bundleID: String
   let applicationVersion: String
-  let downloadID: String
+  let downloadID: Int
   let versionExternalIdentifier: String
   let receiptCreationDate: String
   let receiptCreationDateMS: String
