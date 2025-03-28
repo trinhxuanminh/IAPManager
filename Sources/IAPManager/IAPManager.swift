@@ -87,42 +87,7 @@ public final class IAPManager: NSObject {
   }
   
   public func restore() async throws -> [BasePermission] {
-    self.isPurchasing = true
-    var isResumed = false
-    
-    return try await withCheckedThrowingContinuation { continuation in
-      self.updatedTransaction = { transactions in
-        guard !isResumed else {
-          return
-        }
-        var resultPermissions = [BasePermission]()
-
-        for transaction in transactions {
-          switch transaction.transactionState {
-          case .restored:
-            print("[IAPManager] Restored: \(transaction.payment.productIdentifier)")
-            let permissions = self.getPermission(transaction.payment.productIdentifier)
-            resultPermissions += permissions
-            SKPaymentQueue.default().finishTransaction(transaction)
-          case .failed:
-            print("[IAPManager] Restore failed! - \(String(describing: transaction.error?.localizedDescription))")
-            SKPaymentQueue.default().finishTransaction(transaction)
-            self.isPurchasing = false
-            
-            isResumed = true
-            continuation.resume(throwing: PurchaseError.unknown)
-            return
-          default:
-            break
-          }
-        }
-        self.isPurchasing = false
-        
-        isResumed = true
-        continuation.resume(returning: resultPermissions)
-      }
-      SKPaymentQueue.default().restoreCompletedTransactions()
-    }
+    return try await verify()
   }
   
   public func verify() async throws -> [BasePermission] {
