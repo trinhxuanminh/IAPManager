@@ -15,7 +15,8 @@ let package = Package(
   dependencies: [
     // Dependencies declare other packages that this package depends on.
     // .package(url: /* package url */, from: "1.0.0"),,
-    .package(url: "https://github.com/firebase/firebase-ios-sdk", .upToNextMajor(from: "11.9.0")),
+    .package(url: "https://github.com/firebase/firebase-ios-sdk", revision: "11.9.0"),
+    .package(url: "https://github.com/AppsFlyerSDK/AppsFlyerFramework", revision: "6.16.0"),
     .package(url: "https://github.com/AppsFlyerSDK/appsflyer-apple-purchase-connector.git", branch: "qa-6.16.0-sk2")
   ],
   targets: [
@@ -25,6 +26,7 @@ let package = Package(
       name: "IAPManager",
       dependencies: [
         .product(name: "FirebaseAnalytics", package: "firebase-ios-sdk"),
+        .product(name: "AppsFlyerLib", package: "AppsFlyerFramework"),
         .product(name: "PurchaseConnector", package: "appsflyer-apple-purchase-connector")
       ]
     )

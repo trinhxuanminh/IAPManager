@@ -49,7 +49,7 @@ IAPManager.shared.initialize(permissions: [BasePermission])
 #### purchase()
 This function will return valid product type, product and permissions to perform the functions of unlocking and handling consumables.
 ```swift
-IAPManager.shared.purchase(_ product: BaseProduct) async throws -> (type: Product.ProductType, product: BaseProduct, permissions: [BasePermission])
+IAPManager.shared.purchase(_ product: BaseProduct) async throws -> (product: BaseProduct, permissions: [BasePermission])
 ```
 ```swift
 func unlock(permissions: [BasePermission]) {
@@ -81,7 +81,7 @@ func purchase(product: AppProduct) {
   Task {
     do {
       let result = try await IAPManager.shared.purchase(product)
-      switch result.type {
+      switch result.product.productType {
       case .consumable:
         PermissionManager.shared.consumable(product: result.product)
       default:
