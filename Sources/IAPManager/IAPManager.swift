@@ -8,6 +8,7 @@
 import Foundation
 import FirebaseAnalytics
 import StoreKit
+import PurchaseConnector
 
 public final class IAPManager {
   public static var shared = IAPManager()
@@ -46,7 +47,8 @@ public final class IAPManager {
       case .autoRenewable, .nonRenewable, .nonConsumable:
         permissions = try getPermission(transaction.productID)
       case .consumable:
-        break
+        let afTransaction = AFSDKTransactionSK2(transaction: transaction)
+        PurchaseConnector.shared().logConsumableTransaction(afTransaction)
       default:
         break
       }
