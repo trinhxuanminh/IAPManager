@@ -13,6 +13,7 @@ public final class IAPManager {
   public static var shared = IAPManager()
   
   public enum PurchaseError: Error {
+    case notInitialized
     case notAvailable
     case unverified
     case userCancelled
@@ -24,36 +25,53 @@ public final class IAPManager {
   private var permissions = [BasePermission]()
   
   public func initialize(permissions: [BasePermission]) {
+    print("[IAPManager] Initialized!")
     self.permissions = permissions
     observeTransactions()
   }
   
   public func purchase(_ product: BaseProduct) async throws -> (product: BaseProduct, permissions: [BasePermission]) {
+    print("[IAPManager] Purchasing! - \(product)")
     self.isPurchasing = true
     let skProduct = try await retrieveInfo(product: product)
     let result = try await skProduct.purchase()
     
     switch result {
     case .success(let verification):
+      print("[IAPManager] Purchased! - \(product)")
       let transaction = try checkVerified(verification)
-      let permissions = getPermission(transaction.productID)
+      
+      var permissions = [BasePermission]()
+      switch transaction.productType {
+      case .autoRenewable, .nonRenewable, .nonConsumable:
+        permissions = try getPermission(transaction.productID)
+      case .consumable:
+        break
+      default:
+        break
+      }
+      
       Analytics.logTransaction(transaction)
       await transaction.finish()
       self.isPurchasing = false
       return (product, permissions)
     case .userCancelled:
+      print("[IAPManager] User cancelled! - \(product)")
       self.isPurchasing = false
       throw PurchaseError.userCancelled
     case .pending:
+      print("[IAPManager] Pending! - \(product)")
       self.isPurchasing = false
       throw PurchaseError.pending
     @unknown default:
+      print("[IAPManager] Unknown error! - \(product)")
       self.isPurchasing = false
       throw PurchaseError.unknown
     }
   }
   
   public func verify() async throws -> [BasePermission] {
+    print("[IAPManager] Verifying!")
     var resultPermissions = [BasePermission]()
     
     for await verification in Transaction.currentEntitlements {
@@ -61,25 +79,49 @@ public final class IAPManager {
       switch transaction.productType {
       case .autoRenewable, .nonRenewable:
         if let expirationDate = transaction.expirationDate, expirationDate > Date() {
-          let permissions = getPermission(transaction.productID)
+          let permissions = try getPermission(transaction.productID)
           resultPermissions += permissions
         }
       case .nonConsumable:
-        let permissions = getPermission(transaction.productID)
+        let permissions = try getPermission(transaction.productID)
         resultPermissions += permissions
       default:
         break
       }
-      await transaction.finish()
     }
+    print("[IAPManager] Verified!")
     return resultPermissions
   }
   
   public func restore() async throws -> [BasePermission] {
-    try await verify()
+    print("[IAPManager] Restoring!")
+    var resultPermissions = [BasePermission]()
+    
+    for await verification in Transaction.currentEntitlements {
+      let transaction = try checkVerified(verification)
+      switch transaction.productType {
+      case .autoRenewable, .nonRenewable:
+        if let expirationDate = transaction.expirationDate, expirationDate > Date() {
+          let permissions = try getPermission(transaction.productID)
+          resultPermissions += permissions
+        }
+      case .nonConsumable:
+        let permissions = try getPermission(transaction.productID)
+        resultPermissions += permissions
+      default:
+        break
+      }
+    }
+    if permissions.isEmpty {
+      print("[IAPManager] Nothing to restore!")
+    } else {
+      print("[IAPManager] Restored!")
+    }
+    return resultPermissions
   }
   
-  public func historys() async -> [Transaction] {
+  public func history() async -> [Transaction] {
+    print("[IAPManager] Retrieving history!")
     var purchaseHistory: [Transaction] = []
     
     for await result in Transaction.all {
@@ -90,16 +132,23 @@ public final class IAPManager {
         break
       }
     }
+    if purchaseHistory.isEmpty {
+      print("[IAPManager] No history!")
+    } else {
+      print("[IAPManager] History returned!")
+    }
     return purchaseHistory
   }
   
   public func retrieveInfo(product: BaseProduct) async throws -> Product {
-    let skProducts = try await Product.products(for: [product.id])
+    print("[IAPManager] Getting information! - \(product)")
+    let storeProducts = try await Product.products(for: [product.id])
     
-    guard let skProduct = skProducts.first else {
+    guard let storeProduct = storeProducts.first else {
       throw PurchaseError.notAvailable
     }
-    return skProduct
+    print("[IAPManager] Getting information! - \(product)")
+    return storeProduct
   }
   
   public func getPriceLocale(product: Product) -> String? {
@@ -117,7 +166,11 @@ extension IAPManager {
     }
   }
   
-  private func getPermission(_ productID: String) -> [BasePermission] {
+  private func getPermission(_ productID: String) throws -> [BasePermission] {
+    guard !permissions.isEmpty else {
+      print("[IAPManager] Not initialized!")
+      throw PurchaseError.notInitialized
+    }
     return permissions.filter { permission in
       return permission.products.contains { product in
         return product.id == productID
