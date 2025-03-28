@@ -21,16 +21,12 @@ public final class IAPManager: NSObject {
   }
   
   @Published public private(set) var isPurchasing = false
-  private var sharedSecret: String?
-  private var products = [BaseProduct]()
   private var permissions = [BasePermission]()
   private var skProducts: [String: SKProduct] = [:]
   private var productRequest: SKProductsRequest?
   private var updatedTransaction: UpdatedTransaction?
   
-  public func initialize(sharedSecret: String, products: [BaseProduct], permissions: [BasePermission]) {
-    self.sharedSecret = sharedSecret
-    self.products = products
+  public func initialize(products: [BaseProduct], permissions: [BasePermission]) {
     self.permissions = permissions
     SKPaymentQueue.default().add(self)
     observeTransactions()
@@ -130,40 +126,18 @@ public final class IAPManager: NSObject {
   }
   
   public func verify() async throws -> [BasePermission] {
-    guard let sharedSecret else {
-      throw PurchaseError.notInitialized
-    }
-    let verifyReceipt = try await verifyReceipt(sharedSecret)
-    guard let latestReceiptInfo = verifyReceipt.latestReceiptInfo else {
-      return []
-    }
     var resultPermissions = [BasePermission]()
     
-    for inAppPurchase in latestReceiptInfo {
-      guard
-        let productID = inAppPurchase.productID,
-        let product = products.first(where: { $0.id == productID })
-      else {
-        break
-      }
-      
-      switch product.productType {
+    for await verification in Transaction.currentEntitlements {
+      let transaction = try checkVerified(verification)
+      switch transaction.productType {
       case .autoRenewable, .nonRenewable:
-        guard
-          let expiresDateMS = inAppPurchase.expiresDateMS,
-          let expiresDateTimeInterval = TimeInterval(expiresDateMS)
-        else {
-          break
+        if let expirationDate = transaction.expirationDate, expirationDate > Date() {
+          let permissions = getPermission(transaction.productID)
+          resultPermissions += permissions
         }
-        let expiresDate = Date(timeIntervalSince1970: expiresDateTimeInterval / 1000)
-        
-        guard expiresDate > Date() else {
-          break
-        }
-        let permissions = getPermission(productID)
-        resultPermissions += permissions
       case .nonConsumable:
-        let permissions = getPermission(productID)
+        let permissions = getPermission(transaction.productID)
         resultPermissions += permissions
       default:
         break
@@ -171,12 +145,19 @@ public final class IAPManager: NSObject {
     }
     return resultPermissions
   }
-
-  public func historys() async throws -> VerifyReceipt {
-    guard let sharedSecret else {
-      throw PurchaseError.notInitialized
+  
+  public func historys() async -> [Transaction] {
+    var purchaseHistory: [Transaction] = []
+    
+    for await result in Transaction.all {
+      switch result {
+      case .verified(let transaction):
+        purchaseHistory.append(transaction)
+      case .unverified:
+        break
+      }
     }
-    return try await verifyReceipt(sharedSecret)
+    return purchaseHistory
   }
   
   public func retrieveInfo(product: BaseProduct) async throws -> Product {
@@ -208,6 +189,15 @@ extension IAPManager: SKPaymentTransactionObserver {
 }
 
 extension IAPManager {
+  private func checkVerified(_ result: VerificationResult<Transaction>) throws -> Transaction {
+      switch result {
+      case .unverified:
+        throw PurchaseError.unverified
+      case .verified(let transaction):
+        return transaction
+      }
+    }
+  
   private func getPermission(_ productID: String) -> [BasePermission] {
     return permissions.filter { permission in
       return permission.products.contains { product in
