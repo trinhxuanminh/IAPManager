@@ -28,19 +28,19 @@ public final class IAPManager {
     observeTransactions()
   }
   
-  public func purchase(_ product: BaseProduct) async throws -> (type: Product.ProductType, product: BaseProduct, permissions: [BasePermission]) {
+  public func purchase(_ product: BaseProduct) async throws -> (product: BaseProduct, permissions: [BasePermission]) {
     self.isPurchasing = true
     let skProduct = try await retrieveInfo(product: product)
     let result = try await skProduct.purchase()
     
     switch result {
     case .success(let verification):
-      let transaction = try await checkVerified(verification)
-      let permissions = try await handleTransaction(transaction)
+      let transaction = try checkVerified(verification)
+      let permissions = getPermission(transaction.productID)
       Analytics.logTransaction(transaction)
       await transaction.finish()
       self.isPurchasing = false
-      return (transaction.productType, product, permissions)
+      return (product, permissions)
     case .userCancelled:
       self.isPurchasing = false
       throw PurchaseError.userCancelled
@@ -57,15 +57,15 @@ public final class IAPManager {
     var resultPermissions = [BasePermission]()
     
     for await verification in Transaction.currentEntitlements {
-      let transaction = try await checkVerified(verification)
+      let transaction = try checkVerified(verification)
       switch transaction.productType {
       case .autoRenewable, .nonRenewable:
         if let expirationDate = transaction.expirationDate, expirationDate > Date() {
-          let permissions = try await handleTransaction(transaction)
+          let permissions = getPermission(transaction.productID)
           resultPermissions += permissions
         }
       case .nonConsumable:
-        let permissions = try await handleTransaction(transaction)
+        let permissions = getPermission(transaction.productID)
         resultPermissions += permissions
       default:
         break
@@ -108,7 +108,7 @@ public final class IAPManager {
 }
 
 extension IAPManager {
-  private func checkVerified(_ result: VerificationResult<Transaction>) async throws -> Transaction {
+  private func checkVerified(_ result: VerificationResult<Transaction>) throws -> Transaction {
     switch result {
     case .unverified:
       throw PurchaseError.unverified
@@ -117,10 +117,10 @@ extension IAPManager {
     }
   }
   
-  private func handleTransaction(_ transaction: Transaction) async throws -> [BasePermission] {
+  private func getPermission(_ productID: String) -> [BasePermission] {
     return permissions.filter { permission in
       return permission.products.contains { product in
-        return product.id == transaction.productID
+        return product.id == productID
       }
     }
   }
@@ -129,7 +129,7 @@ extension IAPManager {
     Task.detached {
       for await verification in Transaction.updates {
         do {
-          let transaction = try await self.checkVerified(verification)
+          let transaction = try self.checkVerified(verification)
           await transaction.finish()
         } catch {
           print("[IAPManager] Transaction failed verification: \(error)")
